@@ -28,6 +28,10 @@ To use this driver, open in KStars the profile editor and enter Tic Focuser(BT)f
 
 I have written and tested this program using the Pololu Tic T825 controller. For my nema17 stepper with gearbox, I have also updated the current limit in the a.m. Tic control center. Please be careful and also read related section in the Userguide, before touching.
 
+Comment on baud rate: Baud rate settings on Tic and HC-05 side need to be matching, e.g. 9.600 or 115.200. This needs to be done via the Ticgui, which requires to connect the Tic via USB to the pc. The baud rate for the HC-05 can be changed via minicom tool (for example). The change of the baud rate for the rfcomm port can be changed via the Ekos client (INDI controls).
+
+Config settings can be saved, now also covering the step mode and baud rate settings.
+
 Some guidance on pairing the HC-05 module (taken from indilib forum TSECKLER):
 
 1) In some cases modemmanager interferes with bluetooth operation remove it.
