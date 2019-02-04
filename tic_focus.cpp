@@ -29,10 +29,18 @@
 #include <stdint.h>
 #include <termios.h>
 
+//#include "connectionserial.h"
+#include "indistandardproperty.h"
+#include "indicom.h"
+#include "indilogger.h"
+
 const char * device;
-uint32_t baud_rate = 115200;
+uint32_t baud_rate; // = 115200;
 int fd;
 int32_t targetTicks; 
+struct termios options;
+int result;
+int baud_rate_switch;
 
 // We declare an auto pointer to focusTic.
 std::unique_ptr<FocusTic> focusTic(new FocusTic());
@@ -60,21 +68,37 @@ int tic_exit_safe_start(int fd)
   return write_port(fd, command, sizeof(command));
 }
  
-// Sends the "Set Step Mode" command.
-// Returns 0 on success and -1 on failure.
-/*int tic_set_step_mode(int fd, int stepsize)
+int tic_set_baud_rate(const char* dev, int baud_rate_switch)
 {
-  uint8_t command[2];
-  command[0] = 0x94;
-  command[1] = 0x02;
-  //printf("Stepsize is %d.\n", stepsize);
-  return write_port(fd, command, sizeof(command));
-}*/
+    // This code only supports certain standard baud rates. Supporting
+    // non-standard baud rates should be possible but takes more work.
+    IDMessage(dev, "Baud Rate Set Funktion %d", baud_rate_switch);
 
-// Sets the target position, returning 0 on success and -1 on failure.
-//
-// For more information about what this command does, see the
-// "Set target position" command in the "Command reference" section of the Tic user's guide.
+    switch (baud_rate_switch)
+    {
+    case 0:  cfsetospeed(&options, B9600);   break;
+    case 1:  cfsetospeed(&options, B19200);  break;
+    case 2:  cfsetospeed(&options, B38400);  break;
+    case 3:  cfsetospeed(&options, B57600);  break;
+    case 4:  cfsetospeed(&options, B115200); break;
+    default:
+      cfsetospeed(&options, B9600);
+      break;
+    }
+    cfsetispeed(&options, cfgetospeed(&options));
+
+    result = tcsetattr(fd, TCSANOW, &options);
+    if (result)
+    {
+      perror("tcsetattr failed");
+      IDMessage(dev, "Funktion Failed%d", baud_rate_switch);
+      close(fd);
+      return -1;
+    }
+
+    return 0;
+}
+
 int tic_set_target_position(int fd, int32_t target)
 {
   uint32_t value = target;
@@ -178,14 +202,14 @@ bool FocusTic::Connect()
   }
  
   // Flush away any bytes previously read or written.
-  int result = tcflush(fd, TCIOFLUSH);
+  result = tcflush(fd, TCIOFLUSH);
   if (result)
   {
     perror("tcflush failed");  // just a warning, not a fatal error
   }
  
   // Get the current configuration of the serial port.
-  struct termios options;
+  //struct termios options;
   result = tcgetattr(fd, &options);
   if (result)
   {
@@ -204,32 +228,11 @@ bool FocusTic::Connect()
   // at least one byte available or when 100 ms has passed.
   options.c_cc[VTIME] = 0;
   options.c_cc[VMIN] = 1;
- 
-  // This code only supports certain standard baud rates. Supporting
-  // non-standard baud rates should be possible but takes more work.
-  
-  switch (baud_rate)
-  {
-  case 4800:   cfsetospeed(&options, B4800);   break;
-  case 9600:   cfsetospeed(&options, B9600);   break;
-  case 19200:  cfsetospeed(&options, B19200);  break;
-  case 38400:  cfsetospeed(&options, B38400);  break;
-  case 115200: cfsetospeed(&options, B115200); break;
-  default:
-    fprintf(stderr, "warning: baud rate %u is not supported, using 9600.\n",
-      baud_rate);
-    cfsetospeed(&options, B9600);
-    break;
-  }
-  cfsetispeed(&options, cfgetospeed(&options));
- 
-  result = tcsetattr(fd, TCSANOW, &options);
-  if (result)
-  {
-    perror("tcsetattr failed");
-    close(fd);
-    return -1;
-  }
+
+  baud_rate_switch = IUFindOnSwitchIndex(&BaudRateSP);
+  const char* dev;
+  tic_set_baud_rate(dev, baud_rate_switch);
+  IDMessage(getDeviceName() , "Baud Rate Switch upon coonect%d",baud_rate_switch);
  
   return true;
 }
@@ -281,6 +284,14 @@ bool FocusTic::initProperties()
 	IUFillSwitch(&FocusParkingS[1],"FOCUS_PARKOFF","Disable",ISS_OFF);
 	IUFillSwitchVector(&FocusParkingSP,FocusParkingS,2,getDeviceName(),"FOCUS_PARK","Parking Mode",OPTIONS_TAB,IP_RW,ISR_1OFMANY,60,IPS_OK);
 
+    IUFillSwitch(&BaudRateS[0], "9600", "", ISS_OFF);
+    IUFillSwitch(&BaudRateS[1], "19200", "", ISS_OFF);
+    IUFillSwitch(&BaudRateS[2], "38400", "", ISS_OFF);
+    IUFillSwitch(&BaudRateS[3], "57600", "", ISS_OFF);
+    IUFillSwitch(&BaudRateS[4], "115200", "", ISS_ON);
+    IUFillSwitchVector(&BaudRateSP, BaudRateS, 5, getDeviceName(), INDI::SP::DEVICE_BAUD_RATE, "Baud Rate", CONNECTION_TAB,
+           IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
+
     return true;
 }
 
@@ -308,6 +319,7 @@ bool FocusTic::updateProperties()
 		defineNumber(&FocusBacklashNP);
 		defineSwitch(&FocusParkingSP);
 		defineSwitch(&FocusResetSP);
+        defineSwitch(&BaudRateSP);
     }
     else
     {
@@ -471,7 +483,8 @@ bool FocusTic::ISNewSwitch (const char *dev, const char *name, ISState *states, 
             int current_mode = IUFindOnSwitchIndex(&StepModeSP);
              
             IUUpdateSwitch(&StepModeSP, states, names, n);
- 
+            if (isConnected())
+            {
             int target_mode = IUFindOnSwitchIndex(&StepModeSP);
             if (current_mode == target_mode)
             {
@@ -497,11 +510,26 @@ bool FocusTic::ISNewSwitch (const char *dev, const char *name, ISState *states, 
   
              StepModeSP.s = IPS_OK;
              IDSetSwitch(&StepModeSP, nullptr);
+            }
              return true;
         }
 
+          if (!strcmp(name, BaudRateSP.name))
+               {
+                 if (isConnected())
+                   {
+                   IUUpdateSwitch(&BaudRateSP, states, names, n);
+                   baud_rate_switch = IUFindOnSwitchIndex(&BaudRateSP);
+                   tic_set_baud_rate(dev, baud_rate_switch);
+                   IDMessage(getDeviceName(), "Baud Rate %d", baud_rate_switch);
+                   //IDMessage(dev, "Baud Rate %d", baud_rate_switch);
+                   BaudRateSP.s = IPS_OK;
+                   IDSetSwitch(&BaudRateSP, nullptr);
+                   }
+                   return true;
+               }
     }
-    return INDI::Focuser::ISNewSwitch(dev,name,states,names,n);
+     return INDI::Focuser::ISNewSwitch(dev,name,states,names,n);
 }
 
 bool FocusTic::ISSnoopDevice (XMLEle *root)
@@ -515,6 +543,8 @@ bool FocusTic::saveConfigItems(FILE *fp)
     IUSaveConfigNumber(fp, &PresetNP);
     IUSaveConfigNumber(fp, &FocusBacklashNP);
 	IUSaveConfigSwitch(fp, &FocusParkingSP);
+    IUSaveConfigSwitch(fp, &StepModeSP);
+    IUSaveConfigSwitch(fp, &BaudRateSP);
 
     if ( FocusParkingS[0].s == ISS_ON )
 		IUSaveConfigNumber(fp, &FocusAbsPosNP);

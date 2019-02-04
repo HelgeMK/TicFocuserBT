@@ -47,6 +47,9 @@ class FocusTic : public INDI::Focuser
         typedef enum { FOCUS_QUARTER_STEP, FOCUS_HALF_STEP, FOCUS_FULL_STEP } FocusStepMode;
         bool setStepMode(FocusStepMode mode);
 
+        ISwitch BaudRateS[6];
+        ISwitchVectorProperty BaudRateSP;
+
         virtual bool Connect();
         virtual bool Disconnect();
         virtual bool initProperties();
