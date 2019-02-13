@@ -5,9 +5,9 @@ With the Tic Focuser driver, stepper motors can be controlled thru the Pololu Ti
 
 Since we are only writing commands to the Tic, it suffices to only connect the 5V and GND pole of the Tic controller to the HC-05 module, and the TX pole of the HC-05 module to the RX pole of the Tic controller.
 
-With 
+This project was inspired by Radek Kaczorek's "astroberry-diy" drivers, designed for the Raspberry Pi and similar single board computers. See his repository for reference: https://github.com/rkaczorek/astroberry-diy. 
 
-This project was inspired by Radek Kaczorek's "astroberry-diy" drivers, designed for the Raspberry Pi and similar single board computers. See his repository for reference: https://github.com/rkaczorek/astroberry-diy
+Special thanks go to Paul from the Indilib Community who was helping me on the "Handshake" to establish the serial connection!
 
 Strictly required is the implementation of the Tic Linux software (required for below mentioned "ticgui"), see following link:
 
@@ -30,7 +30,7 @@ I have written and tested this program using the Pololu Tic T825 controller. For
 
 Comment on step mode: now can be set to either Full Step, Half Step, and Quarter Step.
 
-Comment on baud rate: Baud rate settings on Tic and HC-05 side need to be matching, e.g. 9.600 or 115.200. This needs to be done via the Ticgui, which requires to connect the Tic via USB to the pc. The baud rate for the HC-05 can be changed via minicom tool (for example). The change of the baud rate for the rfcomm port can be changed via the Ekos client (INDI controls).
+Comment on baud rate: Baud rate settings on Tic and HC-05 side need to be matching, e.g. 9.600 or 115.200. This needs to be done via the Ticgui, which requires to connect the Tic via USB to the pc. The baud rate for the HC-05 can be changed via minicom tool (for example). 
 
 Config settings can be saved, now also covering the step mode and baud rate settings.
 
