@@ -20,37 +20,23 @@
 #define FOCUSTIC_H
 
 
-#include <indifocuser.h>
+#include "indifocuser.h"
 
 class FocusTic : public INDI::Focuser
 
 {
-    protected:
-    private:
-        ISwitch FocusResetS[1];
-        ISwitchVectorProperty FocusResetSP;
 
-        ISwitch StepModeS[3];
-        ISwitchVectorProperty StepModeSP;
-        
-        ISwitch FocusParkingS[2];
-        ISwitchVectorProperty FocusParkingSP;
- 
-	INumber FocusBacklashN[1];
-	INumberVectorProperty FocusBacklashNP; 
-    public:
+
+public:
         
         FocusTic();
-        virtual ~FocusTic();
-        const char *getDefaultName();
-	
+        ~FocusTic();
+
         typedef enum { FOCUS_QUARTER_STEP, FOCUS_HALF_STEP, FOCUS_FULL_STEP } FocusStepMode;
         bool setStepMode(FocusStepMode mode);
 
-        ISwitch BaudRateS[6];
-        ISwitchVectorProperty BaudRateSP;
-
-        virtual bool Connect();
+        virtual bool Handshake();
+        const char * getDefaultName();
         virtual bool Disconnect();
         virtual bool initProperties();
         virtual bool updateProperties();        
@@ -59,11 +45,29 @@ class FocusTic : public INDI::Focuser
         virtual bool ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n);
         virtual bool ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n);
         virtual bool ISSnoopDevice(XMLEle *root);
-        virtual bool saveConfigItems(FILE *fp);
-        virtual IPState MoveFocuser(FocusDirection dir, int speed, int duration);
-        virtual IPState MoveAbsFocuser(int ticks);
-        virtual IPState MoveRelFocuser(FocusDirection dir, int ticks);
+        virtual bool saveConfigItems(FILE *fp)override;
+  //    virtual IPState MoveFocuser(FocusDirection dir, int speed, uint16_t duration);
+        virtual IPState MoveAbsFocuser(uint32_t ticks);
+        virtual IPState MoveRelFocuser(FocusDirection dir, uint32_t ticks);
         virtual bool SetSpeed(int speed);
+
+private:
+        void tic_exit_safe_start();
+        void tic_set_target_position(uint32_t target);
+
+        uint32_t targetTicks;
+
+        ISwitch FocusResetS[1];
+        ISwitchVectorProperty FocusResetSP;
+
+        ISwitch StepModeS[3];
+        ISwitchVectorProperty StepModeSP;
+
+        ISwitch FocusParkingS[2];
+        ISwitchVectorProperty FocusParkingSP;
+
+        INumber FocusBacklashN[1];
+        INumberVectorProperty FocusBacklashNP;
 };
 
 #endif
